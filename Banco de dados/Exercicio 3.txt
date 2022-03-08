@@ -1,0 +1,70 @@
+query #1
+SELECT copia_tabelas_tarefa_03(); 
+UPDATE cidade SET
+  pais = 'Peru'
+WHERE pais = 'eru';
+
+UPDATE cidade SET
+  pais = 'Irã'
+WHERE pais = 'Irão';
+
+SELECT nome, pais
+FROM cidade
+WHERE pais='Irã' or pais='Peru';
+
+query #2
+SELECT copia_tabelas_tarefa_03();
+UPDATE cidade SET
+	definicao = (SELECT regexp_replace(definicao,'[[][0-9]+[]]','','g')
+				 WHERE definicao ~ '[[][0-9]+[]]'
+				 UNION
+				 SELECT regexp_replace(definicao,'[[][0-9]+[]]','','g')
+				 WHERE definicao is not null
+				);
+				
+Select nome, definicao 
+ from cidade 
+ except all select nome, definicao from public.cidade
+ order by nome
+
+query #3
+SELECT copia_tabelas_tarefa_03();
+UPDATE cidade SET
+	habitantes = (SELECT regexp_replace(habitantes,'[[][0-9]+[]]','','g')
+				 WHERE habitantes ~ '[[][0-9]+[]]'
+				 UNION
+				 SELECT regexp_replace(habitantes,'[[][0-9]+[]]','','g')
+				 WHERE habitantes is not null
+				);	
+UPDATE cidade SET 
+	habitantes = (SELECT regexp_replace(habitantes,',','','g'));
+	
+UPDATE cidade SET
+	habitantes = (SELECT regexp_replace(habitantes,' ','','g'));
+				  
+select nome, habitantes 
+from cidade 
+except all select nome, habitantes 
+from public.cidade 
+order by nome;
+
+query #4
+SELECT copia_tabelas_tarefa_03();
+UPDATE cidade SET
+	area_km2 = (SELECT regexp_replace(area_km2,'[[][0-9]+[]]','','g')
+				 WHERE area_km2 ~ '[[][0-9]+[]]'
+				 UNION
+				 SELECT regexp_replace(area_km2,'[[][0-9]+[]]','','g')
+				 WHERE area_km2 is not null
+				);	
+UPDATE cidade SET 
+	area_km2 = (SELECT regexp_replace(area_km2,',','.','g'));
+	
+UPDATE cidade SET
+	area_km2 = (SELECT regexp_replace(area_km2,' ','','g'));
+	
+select nome, area_km2 
+from cidade 
+except all select nome, area_km2 
+from public.cidade
+order by nome;

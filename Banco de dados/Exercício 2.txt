@@ -1,0 +1,125 @@
+SELECT * FROM cotacao limit 1000;
+
+select datahora_bolsa, count(*)
+from cotacao
+group by datahora_bolsa
+having count(*) > 56
+order by count(*) desc
+limit 100;
+
+query #1
+SELECT *
+FROM
+  (SELECT DISTINCT
+	date_part('hour', datahora_bolsa) as hora,
+	date_part('minute',date_trunc('minute', datahora_bolsa)) as minuto,
+	count(*) OVER (partition by date_trunc('minute', datahora_bolsa)) as n_registros
+	FROM cotacao
+  ) AS t1
+WHERE n_registros > 3360 AND hora >= 10
+ORDER BY hora, minuto
+
+query #2
+SELECT
+	hora,
+	min,
+	max
+FROM
+(SELECT DISTINCT
+ 	datahora_bolsa,
+ 	last::float as valor,
+	date_part('hour', datahora_bolsa) as hora,
+	date_part('minute',date_trunc('minute', datahora_bolsa)) as minuto,
+	MAX(last::float) OVER (partition by date_part('hour', datahora_bolsa)) as max,
+ 	MIN(last::float) OVER (partition by date_part('hour', datahora_bolsa)) as min
+FROM cotacao
+WHERE codigo = 'PETR4' AND date_part('hour', datahora_bolsa) >= 10
+ORDER BY datahora_bolsa) as t2
+WHERE valor = max
+GROUP BY hora,min,max
+ORDER BY hora
+
+query #3
+SELECT hora,codigo,abertura,fechamento FROM
+(SELECT date_part('hour',hora) as hora,codigo,abertura
+FROM
+(SELECT CASE WHEN date_part('second',hora) = 00 THEN hora END AS hora,
+	codigo,
+	CASE WHEN date_part('second',hora) = 00 THEN v1 END AS abertura
+FROM
+(SELECT datahora_bolsa as hora,
+	codigo,
+	ROUND(last::numeric,2) as v1
+FROM cotacao
+WHERE codigo IN ('PETR4','LAME3','VALE3') AND date_part('hour', datahora_bolsa) >= 11 
+	AND ((date_part('minute', datahora_bolsa) = 00 AND  date_part('second', datahora_bolsa) = 00)
+	OR (date_part('minute', datahora_bolsa) = 59 AND date_part('second', datahora_bolsa) = 59)
+		OR (date_part('hour', datahora_bolsa) = 16 AND date_part('minute', datahora_bolsa) = 54 AND date_part('second', datahora_bolsa) = 59))
+GROUP BY codigo, hora, last
+ORDER BY hora, codigo) as t5) as t52
+WHERE hora is not null
+ ) as t53
+JOIN
+(SELECT date_part('hour',hora) as hora2,codigo as codigo2,fechamento
+FROM
+(SELECT CASE WHEN date_part('second',hora) = 59 THEN hora END AS hora,
+	codigo,
+	CASE WHEN date_part('second',hora) = 59 THEN v1 END AS fechamento
+FROM
+(SELECT datahora_bolsa as hora,
+	codigo,
+	ROUND(last::numeric,2) as v1
+FROM cotacao
+WHERE codigo IN ('PETR4','LAME3','VALE3') AND date_part('hour', datahora_bolsa) >= 11 
+	AND ((date_part('minute', datahora_bolsa) = 00 AND  date_part('second', datahora_bolsa) = 00)
+	OR (date_part('minute', datahora_bolsa) = 59 AND date_part('second', datahora_bolsa) = 59)
+		OR (date_part('hour', datahora_bolsa) = 16 AND date_part('minute', datahora_bolsa) = 54 AND date_part('second', datahora_bolsa) = 59))
+GROUP BY codigo, hora, last
+ORDER BY hora, codigo) as t5) as t54
+WHERE hora is not null
+) as t55
+ON t53.hora = t55.hora2 AND t53.codigo = t55.codigo2
+
+query #4
+SELECT date_part('hour',date_trunc('hour', datahora_bolsa)) as hora,
+	ROUND(avg(last::float)::numeric,5) as avg,
+	ROUND(stddev(last::float)::numeric,5) as stddev
+FROM cotacao
+WHERE codigo IN ('VALE3') AND date_part('hour',date_trunc('hour', datahora_bolsa)) >= 10
+GROUP BY date_part('hour',date_trunc('hour', datahora_bolsa))
+ORDER BY date_part('hour',date_trunc('hour', datahora_bolsa))
+
+query #5
+SELECT  date_part('hour',date_trunc('hour',hora1)) as hora,
+	ROUND(corr(last1,last2)::numeric,5) as corr,
+	COUNT(hora1) as n_registros 
+FROM
+((SELECT DISTINCT codigo as codigo2,datahora as hora2,  ROUND(last::numeric,5) as last2
+FROM cotacao
+WHERE codigo = 'PETR4' AND date_part('hour',datahora) >= 10
+ORDER BY datahora) as t9234
+join
+(SELECT DISTINCT codigo as codigo1,datahora as hora1, ROUND(last::numeric,5) as last1
+FROM cotacao
+WHERE codigo = 'PETR3' AND date_part('hour',datahora) >= 10
+ORDER BY datahora) as t2183
+ON t9234.hora2 = t2183.hora1
+)
+GROUP BY date_part('hour',date_trunc('hour',hora1))
+ORDER BY date_part('hour',date_trunc('hour',hora1))
+
+query #6
+SELECT codigo, hora
+FROM
+(SELECT DISTINCT codigo, hora, volume, max(volume) over(partition by codigo) as max
+FROM
+(SELECT codigo, 
+ 	date_part('hour',date_trunc('hour', datahora_bolsa)) as hora,
+	sum(vol::float) as volume
+FROM cotacao
+WHERE codigo IN ('BBAS3', 'LAME3', 'PETR4', 'VALE3') AND 
+ 	date_part('hour',date_trunc('hour', datahora_bolsa)) >=10
+GROUP BY codigo,  date_part('hour',date_trunc('hour', datahora_bolsa))
+ORDER BY codigo,hora) as t6 ) as t7
+WHERE volume = max
+ORDER BY codigo

@@ -1,0 +1,69 @@
+===  RESPOSTAS =======================================================
+query #1
+select extract(hour from datahora_bolsa) as hora,extract (minute from datahora_bolsa) as minuto,count(*) as n_registros
+from cotacao group by hora, minuto
+having count(*) > 3360 and extract(hour from datahora_bolsa) > 9
+order by hora, minuto;
+
+query #2
+select extract(hour from datahora_bolsa) hora, min(last::float8), max(last::float8)
+from cotacao
+where codigo = 'PETR4' and  extract(hour from datahora_bolsa) > 9
+group by extract(hour from datahora_bolsa)
+order by 1;
+
+query #3
+select *,
+(select last::numeric(5,2) from cotacao i where i.codigo = e.codigo and extract( hour from datahora_bolsa ) = e.hora order by datahora_bolsa limit 1) abertura,
+(select last::numeric(5,2) from cotacao i where i.codigo = e.codigo and extract( hour from datahora_bolsa ) = e.hora order by datahora_bolsa desc limit 1) fechamento
+from (
+select extract( hour from datahora_bolsa ) hora, codigo
+from cotacao e
+where codigo in ('PETR4','LAME3','VALE3') and extract( hour from datahora_bolsa ) > 10
+group by 1, 2
+order by 1, 2) e
+order by 1, 2;
+
+query #4
+select extract(hour from datahora_bolsa) hora, avg(last::float8)::numeric(8,5), stddev( last::float8 )::numeric(8,5)
+from cotacao
+where extract(hour from datahora_bolsa) > 9
+and codigo = 'VALE3'
+group by 1
+order by 1;
+
+query #5
+select extract(hour from a.datahora_bolsa) hora, corr( a.preco, b.preco )::numeric(6,5), count(*) n_registros
+from
+(select datahora, datahora_bolsa, codigo, last::float8 preco from cotacao where codigo = 'PETR4') a,
+(select datahora, datahora_bolsa, codigo, last::float8 preco from cotacao where codigo = 'PETR3') b
+where a.datahora = b.datahora and extract(hour from a.datahora_bolsa) > 9
+group by 1
+order by 1;
+
+query #6
+select codigo,
+(select extract(hour from datahora_bolsa) hora from cotacao i where i.codigo = e.codigo
+ and extract(hour from datahora_bolsa) > 9
+ group by 1 order by sum(vol::float8) desc limit 1)
+from cotacao e
+where datahora_bolsa::time > '10:10:00' and codigo in ( 'PETR4', 'VALE3', 'LAME3', 'BBAS3' )
+group by codigo
+order by codigo;
+
+
+Solução Alternativa para a query3
+
+
+SELECT DISTINCT
+extract( hour FROM datahora_bolsa ) AS hora,
+codigo,
+FIRST_VALUE(last::NUMERIC(5,2)) OVER( PARTITION BY extract( hour FROM datahora_bolsa ), CODIGO
+        ORDER BY datahora_bolsa ASC
+    ) AS ABERTURA,
+FIRST_VALUE(last::NUMERIC(5,2)) OVER( PARTITION BY extract( hour FROM datahora_bolsa ), CODIGO
+        ORDER BY datahora_bolsa DESC
+    ) AS FECHAMENTO
+from cotacao
+where codigo IN ('PETR4', 'LAME3', 'VALE3') AND extract( hour FROM datahora_bolsa) > 10
+order by extract( hour FROM datahora_bolsa ) ASC, codigo ASC
